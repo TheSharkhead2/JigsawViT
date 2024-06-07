@@ -81,6 +81,14 @@ def evaluate(data_loader, model, device):
     # switch to evaluation mode
     model.eval()
 
+    # initialize dictionaries to hold predictions and labels for each class
+    class_correct = {}
+    class_total = {}
+
+    # to store predictions and actual labels
+    all_predictions = []
+    all_labels = []
+
     for images, target in metric_logger.log_every(data_loader, 10, header):
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
@@ -96,9 +104,33 @@ def evaluate(data_loader, model, device):
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+
+        # store predictions and labels for class accuracy calculation
+        _, predictions = torch.max(output.sup, 1)
+        all_predictions.extend(predictions.cpu().numpy())
+        all_labels.extend(target.cpu().numpy())
+
+    for label, pred in zip(all_labels, all_predictions):
+        # compute total correct predictions and total predictions
+        if label == pred:
+            class_correct[label] += 1
+        class_total[label] += 1
+
+    class_accuracies = [
+        class_correct[cls] / class_total[cls] for cls in class_total]
+
+    print("Class average accuracy: " + str(
+                        sum(class_accuracies) / len(class_accuracies)))
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
-          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
+          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, 
+                  losses=metric_logger.loss))
 
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    return_keys = {k: meter.global_avg for
+                   k, meter in metric_logger.meters.items()}
+
+    return_keys["class_avg_acc"] = sum(class_accuracies) / len(class_accuracies)
+
+    return return_keys

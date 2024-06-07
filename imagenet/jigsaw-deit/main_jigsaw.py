@@ -1,3 +1,5 @@
+import wandb
+
 # Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 import argparse
@@ -7,6 +9,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 import json
+import os
 
 from pathlib import Path
 
@@ -153,10 +156,13 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
-    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
+    parser.add_argument('--data-set', default='IMNET',
+                        choices=['CIFAR', 'IMNET', 'INAT', 'INAT19',
+                                 'auto_arborist', 'inat100'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
-                        choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
+                        choices=['kingdom', 'phylum', 'class', 'order',
+                                 'supercategory', 'family', 'genus', 'name'],
                         type=str, help='semantic granularity')
 
     parser.add_argument('--output_dir', default='',
@@ -167,7 +173,8 @@ def get_args_parser():
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
+    parser.add_argument('--eval', action='store_true',
+                        help='Perform evaluation only')
     parser.add_argument('--eval-crop-ratio', default=0.875, type=float, help="Crop ratio for evaluation")
     parser.add_argument('--dist-eval', action='store_true', default=False, help='Enabling distributed evaluation')
     parser.add_argument('--num_workers', default=10, type=int)
@@ -188,7 +195,20 @@ def get_args_parser():
     parser.add_argument("--lambda-jigsaw", type=float, default=0.1)
     parser.add_argument("--mask-ratio", type=float, default=0.5)
 
+    # wandb
+    parser.add_argument("--wandb_project", default="NaN")
+
     return parser
+
+
+def get_all_classes(*dirs):
+    all_classes = set()
+    for root_dir in dirs:
+        for class_name in os.listdir(root_dir):
+            class_dir = os.path.join(root_dir, class_name)
+            if os.path.isdir(class_dir):
+                all_classes.add(class_name)
+    return sorted(all_classes)
 
 
 def main(args):
@@ -197,7 +217,8 @@ def main(args):
     print(args)
 
     if args.distillation_type != 'none' and args.finetune and not args.eval:
-        raise NotImplementedError("Finetuning with distillation not yet supported")
+        raise NotImplementedError(
+                            "Finetuning with distillation not yet supported")
 
     device = torch.device(args.device)
 
@@ -209,19 +230,34 @@ def main(args):
 
     cudnn.benchmark = True
 
-    dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
-    dataset_val, _ = build_dataset(is_train=False, args=args)
+    traindir = os.path.join(args.data_path, 'train')
+    valdir = os.path.join(args.data_path, 'val')
+
+    all_classes = get_all_classes(traindir, valdir)
+
+    # Create a universal class_to_idx mapping
+    class_to_idx = {class_name: idx for idx,
+                    class_name in enumerate(all_classes)}
+
+    dataset_train, args.nb_classes = build_dataset(
+        is_train=True, args=args, class_to_idx=class_to_idx,
+        all_classes=all_classes)
+    dataset_val, _ = build_dataset(is_train=False, args=args,
+                                   class_to_idx=class_to_idx,
+                                   all_classes=all_classes)
 
     if True:  # args.distributed:
         num_tasks = utils.get_world_size()
         global_rank = utils.get_rank()
         if args.repeated_aug:
             sampler_train = RASampler(
-                dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+                dataset_train, num_replicas=num_tasks, rank=global_rank,
+                shuffle=True
             )
         else:
             sampler_train = torch.utils.data.DistributedSampler(
-                dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+                dataset_train, num_replicas=num_tasks, rank=global_rank,
+                shuffle=True
             )
         if args.dist_eval:
             if len(dataset_val) % num_tasks != 0:
@@ -439,6 +475,19 @@ def main(args):
         return
 
     print(f"Start training for {args.epochs} epochs")
+
+    # TRAINING LOGGING 
+    wandb.init(
+        project=args.wandb_project,
+        config={
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lambda": args.lambda_jigsaw,
+            "mask_ratio": args.mask_ratio,
+            "model": args.model
+        }
+    )
+
     start_time = time.time()
     max_accuracy = 0.0
     for epoch in range(args.start_epoch, args.epochs):
@@ -492,6 +541,15 @@ def main(args):
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
+
+        # LOGGING
+        wandb.log({
+            "test_acc1": test_stats['acc1'],
+            "test_acc5": test_stats['acc5'],
+            "test_loss": test_stats['loss'],
+            "train_loss_total": train_stats['loss_total'],
+            "train_loss_jigsaw": train_stats['loss_jigsaw']
+        })
         
         if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:

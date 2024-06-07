@@ -53,24 +53,88 @@ class INatDataset(ImageFolder):
     # __getitem__ and __len__ inherited from ImageFolder
 
 
-def build_dataset(is_train, args):
+class CustomImageFolder(ImageFolder):
+    def __init__(
+                 self,
+                 root,
+                 transform=None,
+                 target_transform=None,
+                 class_to_idx=None):
+        super().__init__(root,
+                         transform=transform,
+                         target_transform=target_transform)
+
+        if class_to_idx is not None:
+            self.class_to_idx = class_to_idx
+            self.classes = list(class_to_idx.keys())
+
+            # removes any samples that weren't in train
+            self.samples = [(path, self.class_to_idx[target])
+                            for path, target in self.samples
+                            if target in self.class_to_idx]
+
+            # recompute targets
+            self.targets = [self.class_to_idx[s[1]] for s in self.samples]
+
+
+def build_dataset(is_train, args, class_to_idx, all_classes):
     transform = build_transform(is_train, args)
 
-    if args.data_set == 'CIFAR':
-        dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
-        nb_classes = 100
-    elif args.data_set == 'IMNET':
-        root = os.path.join(args.data_path, 'train' if is_train else 'val')
-        dataset = datasets.ImageFolder(root, transform=transform)
-        nb_classes = 1000
-    elif args.data_set == 'INAT':
-        dataset = INatDataset(args.data_path, train=is_train, year=2018,
-                              category=args.inat_category, transform=transform)
-        nb_classes = dataset.nb_classes
-    elif args.data_set == 'INAT19':
-        dataset = INatDataset(args.data_path, train=is_train, year=2019,
-                              category=args.inat_category, transform=transform)
-        nb_classes = dataset.nb_classes
+    if args.data_set in ["auto_arborist", "inat100"]:
+        # if eval, take test directory
+        if args.eval:
+            root = os.path.join(args.data_path, "test")
+            dataset = datasets.ImageFolder(root, transform=transform)
+
+        else:
+            root = os.path.join(args.data_path, 'train' if is_train else 'val')
+            dataset = datasets.ImageFolder(root, transform=transform)
+
+            dataset.class_to_idx = class_to_idx
+            dataset.classes = all_classes
+
+            nb_classes = len(dataset.classes)
+    else:
+        if args.data_set == 'CIFAR':
+            dataset = datasets.CIFAR100(args.data_path,
+                                        train=is_train, transform=transform)
+            nb_classes = 100
+        elif args.data_set == 'IMNET':
+            root = os.path.join(args.data_path, 'train' if is_train else 'val')
+            dataset = datasets.ImageFolder(root, transform=transform)
+            nb_classes = 1000
+        elif args.data_set == 'INAT':
+            dataset = INatDataset(args.data_path, train=is_train, year=2018,
+                                  category=args.inat_category,
+                                  transform=transform)
+            nb_classes = dataset.nb_classes
+        elif args.data_set == 'INAT19':
+            dataset = INatDataset(args.data_path, train=is_train, year=2019,
+                                  category=args.inat_category,
+                                  transform=transform)
+            nb_classes = dataset.nb_classes
+
+    # elif args.data_set == 'auto_arborist':
+    #     # validation data in test dir
+    #     root = os.path.join(args.data_path, 'train' if is_train else 'val')
+    #     dataset = datasets.ImageFolder(root, transform=transform)
+
+    #     # if not training, make sure to load with correct class mappings
+    #     if not is_train:
+    #         dataset.class_to_idx = class_to_idx
+    #         dataset.classes = list(class_to_idx.keys())
+
+    #     nb_classes = len(dataset.classes)
+
+    # elif args.data_set == "inat100":
+    #     root = os.path.join(args.data_path, 'train' if is_train else 'val')
+    #     dataset = datasets.ImageFolder(root, transform=transform)
+
+    #     if not is_train:
+    #         dataset.class_to_idx = class_to_idx
+    #         dataset.classes = list(class_to_idx.keys())
+
+    #     nb_classes = len(dataset.classes)
 
     return dataset, nb_classes
 
