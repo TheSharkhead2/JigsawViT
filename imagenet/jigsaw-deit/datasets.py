@@ -83,9 +83,14 @@ def build_dataset(is_train, args, class_to_idx, all_classes):
     if args.data_set in ["auto_arborist", "inat100"]:
         # if eval, take test directory
         if args.eval:
-            root = os.path.join(args.data_path, "test")
+            if args.data_set == "inat100":
+                root = os.path.join(args.data_path, "val_new")
+            else:
+                root = os.path.join(args.data_path, "test")
+
             dataset = datasets.ImageFolder(root, transform=transform)
 
+            nb_classes = len(dataset.classes)
         else:
             root = os.path.join(args.data_path, 'train' if is_train else 'val')
             dataset = datasets.ImageFolder(root, transform=transform)

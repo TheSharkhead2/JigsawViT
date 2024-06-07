@@ -6,6 +6,7 @@ Train and eval functions used in main.py
 import math
 import sys
 from typing import Iterable, Optional
+from collections import defaultdict
 
 import torch
 
@@ -82,8 +83,8 @@ def evaluate(data_loader, model, device):
     model.eval()
 
     # initialize dictionaries to hold predictions and labels for each class
-    class_correct = {}
-    class_total = {}
+    class_correct = defaultdict(int)
+    class_total = defaultdict(int)
 
     # to store predictions and actual labels
     all_predictions = []
@@ -120,7 +121,7 @@ def evaluate(data_loader, model, device):
         class_correct[cls] / class_total[cls] for cls in class_total]
 
     print("Class average accuracy: " + str(
-                        sum(class_accuracies) / len(class_accuracies)))
+                        100 * sum(class_accuracies) / len(class_accuracies)))
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
@@ -131,6 +132,6 @@ def evaluate(data_loader, model, device):
     return_keys = {k: meter.global_avg for
                    k, meter in metric_logger.meters.items()}
 
-    return_keys["class_avg_acc"] = sum(class_accuracies) / len(class_accuracies)
+    return_keys["class_avg_acc"] = 100 * sum(class_accuracies) / len(class_accuracies)
 
     return return_keys

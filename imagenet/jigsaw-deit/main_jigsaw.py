@@ -548,9 +548,10 @@ def main(args):
             "test_acc5": test_stats['acc5'],
             "test_loss": test_stats['loss'],
             "train_loss_total": train_stats['loss_total'],
-            "train_loss_jigsaw": train_stats['loss_jigsaw']
+            "train_loss_jigsaw": train_stats['loss_jigsaw'],
+            "test_class_avg_acc": test_stats['class_avg_acc']
         })
-        
+
         if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
