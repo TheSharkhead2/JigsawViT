@@ -95,8 +95,17 @@ def build_dataset(is_train, args, class_to_idx, all_classes):
             root = os.path.join(args.data_path, 'train' if is_train else 'val')
             dataset = datasets.ImageFolder(root, transform=transform)
 
+            old_classes = dataset.classes
+
             dataset.class_to_idx = class_to_idx
             dataset.classes = all_classes
+
+            # need to reset samples and targets
+            dataset.samples = [
+                (path, dataset.class_to_idx[
+                        old_classes[target]
+                    ]) for path, target in dataset.samples]
+            dataset.targets = [s[1] for s in dataset.samples]
 
             nb_classes = len(dataset.classes)
     else:

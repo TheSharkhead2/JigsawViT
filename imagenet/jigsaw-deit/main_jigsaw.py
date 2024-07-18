@@ -33,7 +33,8 @@ import utils
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
+    parser = argparse.ArgumentParser(
+        'DeiT training and evaluation script', add_help=False)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--bce-loss', action='store_true')
@@ -42,7 +43,8 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='jigsaw_base_patch16_224', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input-size', default=224, type=int, help='images input size')
+    parser.add_argument('--input-size', default=224,
+                        type=int, help='images input size')
 
     parser.add_argument('--drop', type=float, default=0.0, metavar='PCT',
                         help='Dropout rate (default: 0.)')
@@ -50,10 +52,13 @@ def get_args_parser():
                         help='Drop path rate (default: 0.1)')
 
     parser.add_argument('--model-ema', action='store_true')
-    parser.add_argument('--no-model-ema', action='store_false', dest='model_ema')
+    parser.add_argument(
+        '--no-model-ema', action='store_false', dest='model_ema')
     parser.set_defaults(model_ema=True)
-    parser.add_argument('--model-ema-decay', type=float, default=0.99996, help='')
-    parser.add_argument('--model-ema-force-cpu', action='store_true', default=False, help='')
+    parser.add_argument('--model-ema-decay', type=float,
+                        default=0.99996, help='')
+    parser.add_argument('--model-ema-force-cpu',
+                        action='store_true', default=False, help='')
 
     # Optimizer parameters
     parser.add_argument('--opt', default='adamw', type=str, metavar='OPTIMIZER',
@@ -101,22 +106,25 @@ def get_args_parser():
     parser.add_argument('--aa', type=str, default='rand-m9-mstd0.5-inc1', metavar='NAME',
                         help='Use AutoAugment policy. "v0" or "original". " + \
                              "(default: rand-m9-mstd0.5-inc1)'),
-    parser.add_argument('--smoothing', type=float, default=0.1, help='Label smoothing (default: 0.1)')
+    parser.add_argument('--smoothing', type=float, default=0.1,
+                        help='Label smoothing (default: 0.1)')
     parser.add_argument('--train-interpolation', type=str, default='bicubic',
                         help='Training interpolation (random, bilinear, bicubic default: "bicubic")')
 
     parser.add_argument('--repeated-aug', action='store_true')
-    parser.add_argument('--no-repeated-aug', action='store_false', dest='repeated_aug')
+    parser.add_argument('--no-repeated-aug',
+                        action='store_false', dest='repeated_aug')
     parser.set_defaults(repeated_aug=True)
-    
+
     parser.add_argument('--train-mode', action='store_true')
-    parser.add_argument('--no-train-mode', action='store_false', dest='train_mode')
+    parser.add_argument('--no-train-mode',
+                        action='store_false', dest='train_mode')
     parser.set_defaults(train_mode=True)
-    
-    parser.add_argument('--ThreeAugment', action='store_true') #3augment
-    
-    parser.add_argument('--src', action='store_true') #simple random crop
-    
+
+    parser.add_argument('--ThreeAugment', action='store_true')  # 3augment
+
+    parser.add_argument('--src', action='store_true')  # simple random crop
+
     # * Random Erase params
     parser.add_argument('--reprob', type=float, default=0.25, metavar='PCT',
                         help='Random erase prob (default: 0.25)')
@@ -145,14 +153,17 @@ def get_args_parser():
     parser.add_argument('--teacher-model', default='regnety_160', type=str, metavar='MODEL',
                         help='Name of teacher model to train (default: "regnety_160"')
     parser.add_argument('--teacher-path', type=str, default='')
-    parser.add_argument('--distillation-type', default='none', choices=['none', 'soft', 'hard'], type=str, help="")
-    parser.add_argument('--distillation-alpha', default=0.5, type=float, help="")
+    parser.add_argument('--distillation-type', default='none',
+                        choices=['none', 'soft', 'hard'], type=str, help="")
+    parser.add_argument('--distillation-alpha',
+                        default=0.5, type=float, help="")
     parser.add_argument('--distillation-tau', default=1.0, type=float, help="")
 
     # * Finetuning params
-    parser.add_argument('--finetune', default='', help='finetune from checkpoint')
-    parser.add_argument('--attn-only', action='store_true') 
-    
+    parser.add_argument('--finetune', default='',
+                        help='finetune from checkpoint')
+    parser.add_argument('--attn-only', action='store_true')
+
     # Dataset parameters
     parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
@@ -175,8 +186,10 @@ def get_args_parser():
                         help='start epoch')
     parser.add_argument('--eval', action='store_true',
                         help='Perform evaluation only')
-    parser.add_argument('--eval-crop-ratio', default=0.875, type=float, help="Crop ratio for evaluation")
-    parser.add_argument('--dist-eval', action='store_true', default=False, help='Enabling distributed evaluation')
+    parser.add_argument('--eval-crop-ratio', default=0.875,
+                        type=float, help="Crop ratio for evaluation")
+    parser.add_argument('--dist-eval', action='store_true',
+                        default=False, help='Enabling distributed evaluation')
     parser.add_argument('--num_workers', default=10, type=int)
     parser.add_argument('--pin-mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
@@ -187,8 +200,9 @@ def get_args_parser():
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
-    parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
-    
+    parser.add_argument('--dist_url', default='env://',
+                        help='url used to set up distributed training')
+
     # jigsaw
     parser.add_argument("--use-jigsaw", action="store_true")
     parser.set_defaults(use_jigsaw=True)
@@ -218,7 +232,7 @@ def main(args):
 
     if args.distillation_type != 'none' and args.finetune and not args.eval:
         raise NotImplementedError(
-                            "Finetuning with distillation not yet supported")
+            "Finetuning with distillation not yet supported")
 
     device = torch.device(args.device)
 
@@ -301,7 +315,7 @@ def main(args):
     print(f"Creating model: {args.model}")
     if args.model == 'jigsaw_base_patch16_224':
         model = models_jigsaw.jigsaw_base_patch16_224(
-            mask_ratio=args.mask_ratio, 
+            mask_ratio=args.mask_ratio,
             use_jigsaw=args.use_jigsaw,
             pretrained=False,
             num_classes=args.nb_classes,
@@ -311,7 +325,7 @@ def main(args):
         )
     elif args.model == 'jigsaw_small_patch16_224':
         model = models_jigsaw.jigsaw_small_patch16_224(
-            mask_ratio=args.mask_ratio, 
+            mask_ratio=args.mask_ratio,
             use_jigsaw=args.use_jigsaw,
             pretrained=False,
             num_classes=args.nb_classes,
@@ -321,7 +335,7 @@ def main(args):
         )
     elif args.model == 'jigsaw_tiny_patch16_224':
         model = models_jigsaw.jigsaw_tiny_patch16_224(
-            mask_ratio=args.mask_ratio, 
+            mask_ratio=args.mask_ratio,
             use_jigsaw=args.use_jigsaw,
             pretrained=False,
             num_classes=args.nb_classes,
@@ -330,7 +344,6 @@ def main(args):
             img_size=args.input_size
         )
 
-                    
     if args.finetune:
         if args.finetune.startswith('https'):
             checkpoint = torch.hub.load_state_dict_from_url(
@@ -351,24 +364,27 @@ def main(args):
         num_patches = model.patch_embed.num_patches
         num_extra_tokens = model.pos_embed.shape[-2] - num_patches
         # height (== width) for the checkpoint position embedding
-        orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
+        orig_size = int(
+            (pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
         # height (== width) for the new position embedding
         new_size = int(num_patches ** 0.5)
         # class_token and dist_token are kept unchanged
         extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
         # only the position tokens are interpolated
         pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
-        pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
+        pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size,
+                                        embedding_size).permute(0, 3, 1, 2)
         pos_tokens = torch.nn.functional.interpolate(
-            pos_tokens, size=(new_size, new_size), mode='bicubic', align_corners=False)
+            pos_tokens, size=(new_size, new_size), mode='bicubic',
+            align_corners=False)
         pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
         new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
         checkpoint_model['pos_embed'] = new_pos_embed
 
         model.load_state_dict(checkpoint_model, strict=False)
-        
+
     if args.attn_only:
-        for name_p,p in model.named_parameters():
+        for name_p, p in model.named_parameters():
             if '.attn.' in name_p:
                 p.requires_grad = True
             else:
@@ -388,7 +404,7 @@ def main(args):
                 p.requires_grad = False
         except:
             print('no patch embed')
-            
+
     model.to(device)
 
     model_ema = None
@@ -402,9 +418,11 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args.gpu])
         model_without_ddp = model.module
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_parameters = sum(p.numel()
+                       for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
     if not args.unscale_lr:
         linear_scaled_lr = args.lr * args.batch_size * utils.get_world_size() / 512.0
@@ -423,10 +441,10 @@ def main(args):
         criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     else:
         criterion = torch.nn.CrossEntropyLoss()
-        
+
     if args.bce_loss:
         criterion = torch.nn.BCEWithLogitsLoss()
-        
+
     teacher_model = None
     if args.distillation_type != 'none':
         assert args.teacher_path, 'need to specify teacher-path when using distillation'
@@ -465,18 +483,20 @@ def main(args):
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
             if args.model_ema:
-                utils._load_checkpoint_for_ema(model_ema, checkpoint['model_ema'])
+                utils._load_checkpoint_for_ema(
+                    model_ema, checkpoint['model_ema'])
             if 'scaler' in checkpoint:
                 loss_scaler.load_state_dict(checkpoint['scaler'])
         lr_scheduler.step(args.start_epoch)
     if args.eval:
         test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        print(
+            f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
 
     print(f"Start training for {args.epochs} epochs")
 
-    # TRAINING LOGGING 
+    # TRAINING LOGGING
     wandb.init(
         project=args.wandb_project,
         config={
@@ -498,8 +518,9 @@ def main(args):
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
-            set_training_mode=args.train_mode,  # keep in eval mode for deit finetuning / train mode for training and deit III finetuning
-            args = args,
+            # keep in eval mode for deit finetuning / train mode for training and deit III finetuning
+            set_training_mode=args.train_mode,
+            args=args,
         )
 
         lr_scheduler.step(epoch)
@@ -515,11 +536,11 @@ def main(args):
                     'scaler': loss_scaler.state_dict(),
                     'args': args,
                 }, checkpoint_path)
-             
 
         test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-        
+        print(
+            f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+
         if max_accuracy < test_stats["acc1"]:
             max_accuracy = test_stats["acc1"]
             if args.output_dir:
@@ -534,7 +555,7 @@ def main(args):
                         'scaler': loss_scaler.state_dict(),
                         'args': args,
                     }, checkpoint_path)
-            
+
         print(f'Max accuracy: {max_accuracy:.2f}%')
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
@@ -562,7 +583,8 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Jigsaw-ViT training and evaluation script', parents=[get_args_parser()])
+    parser = argparse.ArgumentParser(
+        'Jigsaw-ViT training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
