@@ -10,6 +10,8 @@ import time
 import warnings
 import json
 
+import wandb
+
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -186,6 +188,15 @@ def Train(
                 history['testTop1'].append(acc)
                 history['best_acc'].append(best_acc)
 
+                wandb.log({
+                    "acc1": acc,
+                    "train_top1": top1.avg,
+                    "jigsaw_top1": top1_jigsaw.avg,
+                    "loss_cls": losses_cls.avg,
+                    "loss_jigsaw": losses_jigsaw.avg,
+                    "iter": iter_count
+                })
+
                 with open(os.path.join(out_dir, 'history.json'), 'w') as f:
                     json.dump(history, f)
 
@@ -245,8 +256,57 @@ def Test(args, iter_count, best_acc, val_loader, net, out_dir, logger):
     return best_acc, acc
 
 
+def wandb_init(args):
+    wandb.init(
+        project=args.wandb_project,
+        config={
+            "data_path": args.data_path,
+            "data_set": args.data_set,
+            "arch": args.arch,
+            "batch_size": args.batch_size,
+            "workers": args.workers,
+            "max_lr": args.max_lr,
+            "min_lr": args.min_lr,
+            "weight_decay": args.weight_decay,
+            "mask_ratio": args.mask_ratio,
+            "total_iter": args.total_iter,
+            "warmup_iter": args.warmup_iter,
+            "niter_eval": args.niter_eval,
+            "out_dir": args.out_dir,
+            "resumePth": args.resumePth,
+            "gpu": args.gpu,
+            "eta": args.eta,
+            "input_size": args.input_size,
+            "color_jitter": args.color_jitter,
+            "aa": args.aa,
+            "smoothing": args.smoothing,
+            "reprob": args.reprob,
+            "remode": args.remode,
+            "recount": args.recount,
+            "resplit": args.resplit,
+            "mixup": args.mixup,
+            "cutmix": args.cutmix,
+            "cutmix_minmax": args.cutmix_minmax,
+            "mixup_prob": args.mixup_prob,
+            "mixup_switch_prob": args.mixup_switch_prob,
+            "mixup_mode": args.mixup_mode,
+            "seed": args.seed,
+            "world_size": args.world_size,
+            "rank": args.rank,
+            "dist-eval": args.dist_eval,
+            "dist_url": args.dist_url,
+            "dist_backend": args.dist_backend,
+            "multiprocessing_distributed": args.multiprocessing_distributed
+        }
+    )
+
+
 # Main Function
 def main_worker(gpu, ngpus_per_node, args):
+    # I think this will spawn multiple projects, but is actually better b/c
+    # otherwise might quadruple epochs or something strange
+    wandb_init(args)
+
     args.gpu = gpu
 
     # suppress printing if not master
@@ -471,7 +531,11 @@ def main():
         args.world_size = ngpus_per_node * args.world_size
         # Use torch.multiprocessing.spawn to launch distributed processes: the
         # main_worker process function
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        mp.spawn(
+            main_worker,
+            nprocs=ngpus_per_node,
+            args=(ngpus_per_node, args)
+        )
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
@@ -493,7 +557,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '--data-set',
         type=str,
-        choices=['CIFAR10', 'Animal10N', 'Clothing1M', 'Food101N'],
+        choices=[
+            'CIFAR10',
+            'Animal10N',
+            'Clothing1M',
+            'Food101N',
+            "auto_arborist",
+            "inat100k"
+        ],
         default='CIFAR10',
         help='which dataset?'
     )
@@ -676,7 +747,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--dist-url',
-        default='tcp://224.66.41.62:23456',
+        default='env://',
         type=str,
         help='url used to set up distributed training'
     )
@@ -689,6 +760,12 @@ if __name__ == '__main__':
         'N processes per node, which has N GPUs. This is the '
         'fastest way to use PyTorch for either single node or '
         'multi node data parallel training'
+    )
+
+    parser.add_argument(
+        "--wandb-project",
+        type=str,
+        default="NaN"
     )
 
     main()
