@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=5,6 python3 jigsaw-vit/main.py \
+CUDA_VISIBLE_DEVICES=5,6 python -m torch.distributed.launch --nproc_per_node=2 --use_env --master_port=29509 jigsaw-vit/main.py \
   --arch 'vit_small_patch16' \
    --input-size 224 \
    --batch-size 128 \
