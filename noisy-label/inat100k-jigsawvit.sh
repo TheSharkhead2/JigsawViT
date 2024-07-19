@@ -11,7 +11,7 @@ CUDA_VISIBLE_DEVICES=5,6 python -m torch.distributed.launch --nproc_per_node=2 -
    --smoothing 0.1 \
    --mixup 0.8 \
    --cutmix 1.0 \
-   --world-size 1 \
+   --world-size 2 \
    --workers 16 \
    --rank 0 \
    --data-path /home/aoneill/data/iNat100k \
