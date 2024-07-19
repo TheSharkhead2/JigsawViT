@@ -11,6 +11,7 @@ import warnings
 import json
 
 import wandb
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -31,6 +32,75 @@ from datasets import build_dataset
 
 from timm.data import Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+
+
+def setup_for_distributed(is_master):
+    """
+    This function disables printing when not in master process
+    """
+    import builtins as __builtin__
+    builtin_print = __builtin__.print
+
+    def print(*args, **kwargs):
+        force = kwargs.pop('force', False)
+        if is_master or force:
+            builtin_print(*args, **kwargs)
+
+    __builtin__.print = print
+
+
+def is_dist_avail_and_initialized():
+    if not dist.is_available():
+        return False
+    if not dist.is_initialized():
+        return False
+    return True
+
+
+def get_world_size():
+    if not is_dist_avail_and_initialized():
+        return 1
+    return dist.get_world_size()
+
+
+def get_rank():
+    if not is_dist_avail_and_initialized():
+        return 0
+    return dist.get_rank()
+
+
+def is_main_process():
+    return get_rank() == 0
+
+
+def save_on_master(*args, **kwargs):
+    if is_main_process():
+        torch.save(*args, **kwargs)
+
+
+def init_distributed_mode(args):
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        args.rank = int(os.environ["RANK"])
+        args.world_size = int(os.environ['WORLD_SIZE'])
+        args.gpu = int(os.environ['LOCAL_RANK'])
+    elif 'SLURM_PROCID' in os.environ:
+        args.rank = int(os.environ['SLURM_PROCID'])
+        args.gpu = args.rank % torch.cuda.device_count()
+    else:
+        print('Not using distributed mode')
+        args.distributed = False
+        return
+
+    args.distributed = True
+
+    torch.cuda.set_device(args.gpu)
+    args.dist_backend = 'nccl'
+    print('| distributed init (rank {}): {}'.format(
+        args.rank, args.dist_url), flush=True)
+    torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                         world_size=args.world_size, rank=args.rank)
+    torch.distributed.barrier()
+    setup_for_distributed(args.rank == 0)
 
 
 # Weighted training
@@ -302,33 +372,33 @@ def wandb_init(args):
 
 
 # Main Function
-def main_worker(gpu, ngpus_per_node, args):
+def main_worker(args):
     # I think this will spawn multiple projects, but is actually better b/c
     # otherwise might quadruple epochs or something strange
-    wandb_init(args)
 
-    args.gpu = gpu
+    # args.gpu = gpu
 
-    # suppress printing if not master
-    if args.multiprocessing_distributed and gpu != 0:
-        def print_pass(*args):
-            pass
-        builtins.print = print_pass
+    device = torch.device('cuda')
 
-    if args.gpu is not None:
-        print("Use GPU: {} for training".format(args.gpu))
+    # fix the seed for reproducibility
+    seed = args.seed + utils.get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
-    if args.distributed:
-        if args.dist_url == "env://" and args.rank == -1:
-            args.rank = int(os.environ["RANK"])
-        if args.multiprocessing_distributed:
-            # For multiprocessing distributed training, rank needs to be the
-            # global rank among all the processes
-            args.rank = args.rank * ngpus_per_node + gpu
-        dist.init_process_group(
-            backend=args.dist_backend, init_method=args.dist_url,
-            world_size=args.world_size, rank=args.rank
-        )
+    # if args.gpu is not None:
+    #     print("Use GPU: {} for training".format(args.gpu))
+
+    # if args.distributed:
+    #     if args.dist_url == "env://" and args.rank == -1:
+    #         args.rank = int(os.environ["RANK"])
+    #     if args.multiprocessing_distributed:
+    #         # For multiprocessing distributed training, rank needs to be the
+    #         # global rank among all the processes
+    #         args.rank = args.rank * ngpus_per_node + gpu
+    #     dist.init_process_group(
+    #         backend=args.dist_backend, init_method=args.dist_url,
+    #         world_size=args.world_size, rank=args.rank
+    #     )
 
     # Data loading code
     train_dataset, nb_cls = build_dataset(is_train=True, args=args)
@@ -339,25 +409,28 @@ def main_worker(gpu, ngpus_per_node, args):
     net = model_jigsaw.create_model(args.arch, nb_cls)
 
     if args.distributed:
-        # For multiprocessing distributed, DistributedDataParallel constructor
-        # should always set the single device scope, otherwise,
-        # DistributedDataParallel will use all available devices.
-        if args.gpu is not None:
-            torch.cuda.set_device(args.gpu)
-            net.cuda(args.gpu)
-            # When using a single GPU per process and per
-            # DistributedDataParallel, we need to divide the batch size
-            # ourselves based on the total number of GPUs we have
-            args.batch_size = int(args.batch_size / ngpus_per_node)
-            args.workers = int((args.workers + ngpus_per_node - 1) /
-                               ngpus_per_node)
-            net = torch.nn.parallel.DistributedDataParallel(
-                net, device_ids=[args.gpu])
-        else:
-            net.cuda()
-            # DistributedDataParallel will divide and allocate batch_size to
-            # all available GPUs if device_ids are not set
-            net = torch.nn.parallel.DistributedDataParallel(net)
+        # # For multiprocessing distributed, DistributedDataParallel constructor
+        # # should always set the single device scope, otherwise,
+        # # DistributedDataParallel will use all available devices.
+        # if args.gpu is not None:
+        #     torch.cuda.set_device(args.gpu)
+        #     net.cuda(args.gpu)
+        #     # When using a single GPU per process and per
+        #     # DistributedDataParallel, we need to divide the batch size
+        #     # ourselves based on the total number of GPUs we have
+        #     args.batch_size = int(args.batch_size / ngpus_per_node)
+        #     args.workers = int((args.workers + ngpus_per_node - 1) /
+        #                        ngpus_per_node)
+        #     net = torch.nn.parallel.DistributedDataParallel(
+        #         net, device_ids=[args.gpu])
+        net = torch.nn.parallel.DistributedDataParallel(
+                net, device_ids=[args.gpu]
+            )
+        # else:
+        #     net.cuda()
+        #     # DistributedDataParallel will divide and allocate batch_size to
+        #     # all available GPUs if device_ids are not set
+        #     net = torch.nn.parallel.DistributedDataParallel(net)
     elif args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         net = net.cuda(args.gpu)
@@ -427,11 +500,15 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     if args.distributed:
+        num_tasks = get_world_size()
+        global_rank = get_rank()
+
         train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_dataset)
+            train_dataset, num_replicas=num_tasks, rank=global_rank)
         print("train_sampler = %s" % str(train_sampler))
         if args.dist_eval:
-            val_sampler = torch.utils.data.DistributedSampler(val_dataset)
+            val_sampler = torch.utils.data.DistributedSampler(
+                val_dataset, num_replicas=num_tasks, rank=global_rank)
         else:
             val_sampler = torch.utils.data.SequentialSampler(val_dataset)
     else:
@@ -500,45 +577,57 @@ def main_worker(gpu, ngpus_per_node, args):
 
 def main():
     args = parser.parse_args()
-    # output dir + loss + optimizer
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
-    if args.seed is not None:
-        random.seed(args.seed)
-        torch.manual_seed(args.seed)
-        # cudnn.deterministic = True
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
+    args.distributed = True
 
-    if args.gpu is not None:
-        warnings.warn('You have chosen a specific GPU. This will completely '
-                      'disable data parallelism.')
+    wandb_init(args)
 
-    if args.dist_url == "env://" and args.world_size == -1:
-        args.world_size = int(os.environ["WORLD_SIZE"])
+    init_distributed_mode(args)
 
-    args.distributed = args.world_size > 1 or args.multiprocessing_distributed
+    main_worker(args)
 
-    ngpus_per_node = torch.cuda.device_count()
 
-    if args.multiprocessing_distributed:
-        # Since we have ngpus_per_node processes per node, the total world_size
-        # needs to be adjusted accordingly
-        args.world_size = ngpus_per_node * args.world_size
-        # Use torch.multiprocessing.spawn to launch distributed processes: the
-        # main_worker process function
-        mp.spawn(
-            main_worker,
-            nprocs=ngpus_per_node,
-            args=(ngpus_per_node, args)
-        )
-    else:
-        # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+    # # output dir + loss + optimizer
+    # if not os.path.exists(args.out_dir):
+    #     os.mkdir(args.out_dir)
+
+    # if args.seed is not None:
+    #     random.seed(args.seed)
+    #     torch.manual_seed(args.seed)
+    #     # cudnn.deterministic = True
+    #     warnings.warn('You have chosen to seed training. '
+    #                   'This will turn on the CUDNN deterministic setting, '
+    #                   'which can slow down your training considerably! '
+    #                   'You may see unexpected behavior when restarting '
+    #                   'from checkpoints.')
+
+    # if args.gpu is not None:
+    #     warnings.warn('You have chosen a specific GPU. This will completely '
+    #                   'disable data parallelism.')
+
+    # if args.dist_url == "env://" and args.world_size == -1:
+    #     args.world_size = int(os.environ["WORLD_SIZE"])
+
+    # args.distributed = args.world_size > 1 or args.multiprocessing_distributed
+
+    # ngpus_per_node = torch.cuda.device_count()
+
+    # if args.multiprocessing_distributed:
+    #     # Since we have ngpus_per_node processes per node, the total world_size
+    #     # needs to be adjusted accordingly
+    #     args.world_size = ngpus_per_node * args.world_size
+    #     # Use torch.multiprocessing.spawn to launch distributed processes: the
+    #     # main_worker process function
+    #     mp.spawn(
+    #         main_worker,
+    #         nprocs=ngpus_per_node,
+    #         args=(ngpus_per_node, args)
+    #     )
+    # else:
+    #     # Simply call main_worker function
+    #     main_worker(args.gpu, ngpus_per_node, args)
 
 
 if __name__ == '__main__':
