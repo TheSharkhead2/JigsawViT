@@ -577,6 +577,7 @@ def main_worker(args):
 
 def main():
     args = parser.parse_args()
+    args.device = "cuda"
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
