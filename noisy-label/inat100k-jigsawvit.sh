@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=0,1 python3 jigsaw-vit/main.py \
+CUDA_VISIBLE_DEVICES=5,6 python3 jigsaw-vit/main.py \
   --arch 'vit_small_patch16' \
    --input-size 224 \
    --batch-size 128 \
