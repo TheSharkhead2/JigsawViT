@@ -381,7 +381,7 @@ def main_worker(args):
     device = torch.device('cuda')
 
     # fix the seed for reproducibility
-    seed = args.seed + utils.get_rank()
+    seed = args.seed + get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
 
