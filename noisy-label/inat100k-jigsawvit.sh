@@ -11,7 +11,6 @@ CUDA_VISIBLE_DEVICES=0,1 python3 jigsaw-vit/main.py \
    --smoothing 0.1 \
    --mixup 0.8 \
    --cutmix 1.0 \
-   --multiprocessing-distributed \
    --world-size 1 \
    --workers 16 \
    --rank 0 \
