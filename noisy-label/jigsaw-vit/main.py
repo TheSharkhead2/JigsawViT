@@ -423,6 +423,7 @@ def main_worker(args):
         #                        ngpus_per_node)
         #     net = torch.nn.parallel.DistributedDataParallel(
         #         net, device_ids=[args.gpu])
+        net.to(device)
         net = torch.nn.parallel.DistributedDataParallel(
                 net, device_ids=[args.gpu]
             )
