@@ -812,7 +812,7 @@ if __name__ == '__main__':
     # Distrbuted learning
     parser.add_argument(
         '--seed',
-        default=None,
+        default=42,
         type=int,
         help='seed for initializing training. '
     )
