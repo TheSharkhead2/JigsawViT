@@ -19,4 +19,5 @@ CUDA_VISIBLE_DEVICES=5,6 python -m torch.distributed.launch --nproc_per_node=2 -
    --eta 2.0 \
    --mask-ratio 0.1 \
    --out-dir /home/trode/jigsaw-vit-noisy/out \
-   --finetune /home/trode/jigsaw_pretrained_models/imagenet.pth
+   --finetune /home/trode/jigsaw_pretrained_models/imagenet.pth \
+   --wandb-project inaturalist
