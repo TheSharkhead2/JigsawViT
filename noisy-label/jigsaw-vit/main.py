@@ -574,7 +574,7 @@ def main_worker(args):
     train_func = weighted_training
 
     logger = utils.get_logger(args.out_dir)
-    if args.rank == 0 :
+    if args.rank == 0:
         logger.info(args)
     history = {
         'iter': [],
@@ -628,7 +628,6 @@ def main():
     init_distributed_mode(args)
 
     main_worker(args)
-
 
     # # output dir + loss + optimizer
     # if not os.path.exists(args.out_dir):
