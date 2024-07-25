@@ -447,41 +447,6 @@ def main_worker(args):
 
         net.load_state_dict(checkpoint_model, strict=False)
 
-    if args.distributed:
-        # # For multiprocessing distributed, DistributedDataParallel constructor
-        # # should always set the single device scope, otherwise,
-        # # DistributedDataParallel will use all available devices.
-        # if args.gpu is not None:
-        #     torch.cuda.set_device(args.gpu)
-        #     net.cuda(args.gpu)
-        #     # When using a single GPU per process and per
-        #     # DistributedDataParallel, we need to divide the batch size
-        #     # ourselves based on the total number of GPUs we have
-        #     args.batch_size = int(args.batch_size / ngpus_per_node)
-        #     args.workers = int((args.workers + ngpus_per_node - 1) /
-        #                        ngpus_per_node)
-        #     net = torch.nn.parallel.DistributedDataParallel(
-        #         net, device_ids=[args.gpu])
-        net.to(device)
-        net = torch.nn.parallel.DistributedDataParallel(
-                net, device_ids=[args.gpu]
-            )
-        # else:
-        #     net.cuda()
-        #     # DistributedDataParallel will divide and allocate batch_size to
-        #     # all available GPUs if device_ids are not set
-        #     net = torch.nn.parallel.DistributedDataParallel(net)
-    elif args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        net = net.cuda(args.gpu)
-        # comment out the following line for debugging
-        raise NotImplementedError("Only DistributedDataParallel is supported.")
-
-    else:
-        # AllGather implementation (batch shuffle, queue update, etc.) in
-        # this code only supports DistributedDataParallel.
-        raise NotImplementedError("Only DistributedDataParallel is supported.")
-
     # define loss function (criterion) and optimizer
     mixup_fn = None
     mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
@@ -537,6 +502,41 @@ def main_worker(args):
             print("=> no checkpoint found at '{}'".format(args.resumePth))
 
     cudnn.benchmark = True
+
+    if args.distributed:
+        # # For multiprocessing distributed, DistributedDataParallel constructor
+        # # should always set the single device scope, otherwise,
+        # # DistributedDataParallel will use all available devices.
+        # if args.gpu is not None:
+        #     torch.cuda.set_device(args.gpu)
+        #     net.cuda(args.gpu)
+        #     # When using a single GPU per process and per
+        #     # DistributedDataParallel, we need to divide the batch size
+        #     # ourselves based on the total number of GPUs we have
+        #     args.batch_size = int(args.batch_size / ngpus_per_node)
+        #     args.workers = int((args.workers + ngpus_per_node - 1) /
+        #                        ngpus_per_node)
+        #     net = torch.nn.parallel.DistributedDataParallel(
+        #         net, device_ids=[args.gpu])
+        net.to(device)
+        net = torch.nn.parallel.DistributedDataParallel(
+                net, device_ids=[args.gpu]
+            )
+        # else:
+        #     net.cuda()
+        #     # DistributedDataParallel will divide and allocate batch_size to
+        #     # all available GPUs if device_ids are not set
+        #     net = torch.nn.parallel.DistributedDataParallel(net)
+    elif args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+        net = net.cuda(args.gpu)
+        # comment out the following line for debugging
+        raise NotImplementedError("Only DistributedDataParallel is supported.")
+
+    else:
+        # AllGather implementation (batch shuffle, queue update, etc.) in
+        # this code only supports DistributedDataParallel.
+        raise NotImplementedError("Only DistributedDataParallel is supported.")
 
     # Data loading code
     if args.distributed:
